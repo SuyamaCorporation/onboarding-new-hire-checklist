@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新入社員 オンボーディング チェックリスト</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; }
+  .phase-section { break-inside: avoid; margin-bottom: 16px; }
+}
+input[type=checkbox]:checked + span { text-decoration: line-through; color: #9ca3af; }
+</style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="text-center mb-8">
+    <h1 class="text-3xl font-bold text-blue-700 mb-2">新入社員 オンボーディング チェックリスト</h1>
+    <p class="text-gray-500">入社前〜1ヶ月のタスクを管理</p>
+  </div>
+
+  <!-- ヘッダー情報 -->
+  <div class="bg-white rounded-xl shadow p-6 mb-6 no-print">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">新入社員氏名</label>
+        <input type="text" id="hire-name" placeholder="山田 太郎" maxlength="50"
+          class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">入社日</label>
+        <input type="date" id="hire-date"
+          class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">配属部署</label>
+        <input type="text" id="hire-dept" placeholder="営業部" maxlength="50"
+          class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+      </div>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <button onclick="window.print()" class="px-5 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold hover:bg-blue-700 transition">印刷/PDF</button>
+      <button onclick="addCustomTask()" class="px-5 py-2 bg-green-100 text-green-700 rounded-full text-sm font-semibold hover:bg-green-200 transition">＋ タスク追加</button>
+      <button onclick="resetAll()" class="px-5 py-2 bg-red-100 text-red-700 rounded-full text-sm font-semibold hover:bg-red-200 transition">リセット</button>
+    </div>
+  </div>
+
+  <!-- 印刷ヘッダー -->
+  <div class="hidden print:block mb-6">
+    <h2 id="print-title" class="text-xl font-bold text-gray-800"></h2>
+    <p id="print-info" class="text-sm text-gray-600"></p>
+  </div>
+
+  <!-- 進捗バー -->
+  <div class="bg-white rounded-xl shadow p-4 mb-6 no-print">
+    <div class="flex justify-between text-sm text-gray-600 mb-2">
+      <span>全体進捗</span>
+      <span id="progress-text">0 / 0 完了</span>
+    </div>
+    <div class="w-full bg-gray-100 rounded-full h-3">
+      <div id="progress-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-500" style="width:0%" role="progressbar" aria-label="全体進捗"></div>
+    </div>
+  </div>
+
+  <!-- フェーズリスト -->
+  <div id="phases-container" class="space-y-6"></div>
+</div>
+
+<script>
+const DEFAULT_DATA = {
+  name: '', date: '', dept: '',
+  phases: [
+    {
+      id: 'pre', label: '入社前', color: 'bg-purple-600', light: 'bg-purple-50', border: 'border-purple-200',
+      tasks: [
+        { id: 1, text: '労働契約書・誓約書の提出', owner: 'HR', done: false },
+        { id: 2, text: 'マイナンバー・本人確認書類の提出', owner: 'HR', done: false },
+        { id: 3, text: '社会保険・年金の手続き', owner: 'HR', done: false },
+        { id: 4, text: '通勤ルート・交通費申請', owner: '本人', done: false },
+        { id: 5, text: '制服・備品の手配', owner: '総務', done: false },
+        { id: 6, text: 'PCセットアップ・アカウント作成', owner: 'IT', done: false },
+      ]
+    },
+    {
+      id: 'day1', label: '初日', color: 'bg-blue-600', light: 'bg-blue-50', border: 'border-blue-200',
+      tasks: [
+        { id: 10, text: '会社・オフィスツアー', owner: '総務', done: false },
+        { id: 11, text: 'チームメンバーへの挨拶', owner: '本人', done: false },
+        { id: 12, text: '社内システム（メール・Slack等）ログイン確認', owner: 'IT', done: false },
+        { id: 13, text: '就業規則・コンプライアンス説明', owner: 'HR', done: false },
+        { id: 14, text: '緊急連絡先・安全マニュアル配布', owner: '総務', done: false },
+        { id: 15, text: 'ウェルカムランチ', owner: '上長', done: false },
+      ]
+    },
+    {
+      id: 'week1', label: '1週間以内', color: 'bg-green-600', light: 'bg-green-50', border: 'border-green-200',
+      tasks: [
+        { id: 20, text: '業務フロー・ツールのトレーニング', owner: '上長', done: false },
+        { id: 21, text: '社内ナレッジ・ドキュメント確認', owner: '本人', done: false },
+        { id: 22, text: '初回1on1ミーティング', owner: '上長', done: false },
+        { id: 23, text: 'KPIと目標設定の共有', owner: '上長', done: false },
+        { id: 24, text: '関連部署メンバーへの紹介', owner: '上長', done: false },
+        { id: 25, text: '初業務タスクのアサイン', owner: '上長', done: false },
+      ]
+    },
+    {
+      id: 'month1', label: '1ヶ月以内', color: 'bg-orange-600', light: 'bg-orange-50', border: 'border-orange-200',
+      tasks: [
+        { id: 30, text: '業務フロー完全把握・独立業務開始', owner: '本人', done: false },
+        { id: 31, text: '30日振り返りミーティング', owner: '上長', done: false },
+        { id: 32, text: 'スキルアップ研修受講', owner: 'HR', done: false },
+        { id: 33, text: '試用期間中間レビュー', owner: 'HR', done: false },
+        { id: 34, text: '社内ネットワーク拡大（異部署交流）', owner: '本人', done: false },
+        { id: 35, text: '目標達成度確認・フィードバック', owner: '上長', done: false },
+      ]
+    }
+  ]
+};
+
+let data;
+let nextTaskId = 100;
+
+function init() {
+  const saved = localStorage.getItem('onboarding-data');
+  if (saved) {
+    data = JSON.parse(saved);
+  } else {
+    data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }
+  document.getElementById('hire-name').value = data.name || '';
+  document.getElementById('hire-date').value = data.date || '';
+  document.getElementById('hire-dept').value = data.dept || '';
+  document.getElementById('hire-name').oninput = e => { data.name = e.target.value; save(); updatePrintHeader(); };
+  document.getElementById('hire-date').oninput = e => { data.date = e.target.value; save(); updatePrintHeader(); };
+  document.getElementById('hire-dept').oninput = e => { data.dept = e.target.value; save(); updatePrintHeader(); };
+  updatePrintHeader();
+  render();
+}
+
+function updatePrintHeader() {
+  const el = document.getElementById('print-title');
+  const info = document.getElementById('print-info');
+  if (el) el.textContent = (data.name || '___') + ' 様 オンボーディングチェックリスト';
+  if (info) info.textContent = `入社日: ${data.date || '___'} | 部署: ${data.dept || '___'} | 作成日: ${new Date().toLocaleDateString('ja-JP')}`;
+}
+
+function render() {
+  const container = document.getElementById('phases-container');
+  container.innerHTML = '';
+  let totalDone = 0, totalAll = 0;
+
+  data.phases.forEach(phase => {
+    const done = phase.tasks.filter(t => t.done).length;
+    totalDone += done;
+    totalAll += phase.tasks.length;
+    const phasePct = phase.tasks.length > 0 ? Math.round(done / phase.tasks.length * 100) : 0;
+
+    const section = document.createElement('div');
+    section.className = `phase-section bg-white rounded-xl shadow overflow-hidden ${phase.border} border`;
+    section.innerHTML = `
+      <div class="${phase.color} px-5 py-3 flex justify-between items-center">
+        <h2 class="text-white font-bold text-base">${phase.label}</h2>
+        <span class="text-white text-sm opacity-90">${done} / ${phase.tasks.length} 完了 (${phasePct}%)</span>
+      </div>
+      <div class="${phase.light} px-5 pt-3 pb-1">
+        <div class="w-full bg-white rounded-full h-2 mb-3">
+          <div class="h-2 rounded-full transition-all" style="width:${phasePct}%;background:${phase.color.replace('bg-','').replace('-600','')}" class="${phase.color}"></div>
+        </div>
+      </div>
+      <div class="p-5 space-y-2">
+        ${phase.tasks.map(task => `
+          <div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+            <input type="checkbox" id="task-${task.id}" ${task.done ? 'checked' : ''}
+              class="w-4 h-4 rounded accent-blue-500"
+              onchange="toggleTask('${phase.id}',${task.id},this.checked)"
+              aria-label="${escapeHtml(task.text)}">
+            <span class="flex-1 text-sm ${task.done ? 'line-through text-gray-400' : 'text-gray-700'}">${escapeHtml(task.text)}</span>
+            <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded shrink-0">${escapeHtml(task.owner)}</span>
+            <button onclick="deleteTask('${phase.id}',${task.id})" class="no-print text-gray-300 hover:text-red-400 text-xs" aria-label="削除">×</button>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    // fix progress bar color
+    const bar = section.querySelector('.bg-white.rounded-full div');
+    if (bar) bar.style.background = '';
+
+    container.appendChild(section);
+  });
+
+  // update progress
+  document.getElementById('progress-text').textContent = `${totalDone} / ${totalAll} 完了`;
+  const pct = totalAll > 0 ? Math.round(totalDone / totalAll * 100) : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-bar').setAttribute('aria-valuenow', pct);
+}
+
+function toggleTask(phaseId, taskId, done) {
+  const phase = data.phases.find(p => p.id === phaseId);
+  if (phase) {
+    const task = phase.tasks.find(t => t.id === taskId);
+    if (task) { task.done = done; save(); render(); }
+  }
+}
+
+function deleteTask(phaseId, taskId) {
+  const phase = data.phases.find(p => p.id === phaseId);
+  if (phase) { phase.tasks = phase.tasks.filter(t => t.id !== taskId); save(); render(); }
+}
+
+function addCustomTask() {
+  const phaseLabels = data.phases.map((p, i) => `${i+1}: ${p.label}`).join('\n');
+  const pIdx = parseInt(prompt(`追加するフェーズを選択してください:\n${phaseLabels}`)) - 1;
+  if (isNaN(pIdx) || pIdx < 0 || pIdx >= data.phases.length) return;
+  const text = prompt('タスク名を入力してください:');
+  if (!text || !text.trim()) return;
+  const owner = prompt('担当者名を入力してください:', '本人') || '本人';
+  data.phases[pIdx].tasks.push({ id: nextTaskId++, text: text.trim(), owner: owner.trim(), done: false });
+  save();
+  render();
+}
+
+function resetAll() {
+  if (!confirm('すべてのチェックをリセットしますか？（タスク内容は保持）')) return;
+  data.phases.forEach(p => p.tasks.forEach(t => { t.done = false; }));
+  save();
+  render();
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+function save() {
+  localStorage.setItem('onboarding-data', JSON.stringify(data));
+}
+
+init();
+</script>
+</body>
+</html>
